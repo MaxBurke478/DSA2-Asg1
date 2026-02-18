@@ -20,36 +20,36 @@ import java.util.Map;
         {
             int width = (int) input.getWidth();
             int height = (int) input.getHeight();
-            PixelReader pixelReader = input.getPixelReader();
+            PixelReader pixelReader = input.getPixelReader();  //pixelreader so it can access every pixel colour
 
             if(pixelReader == null){
-                return new Detection(new WritableImage(1,1), new ArrayList<>());
+                return new Detection(new WritableImage(1,1), new ArrayList<>()); //if for some reason javaFx cant read image pixels, through simple result
             }
 
-            boolean[] mask = new boolean[width*height];
-            for(int y=0;y<height;y++){
+            boolean[] mask = new boolean[width*height];   //create a boolean mask array, if mask[id]= true, then its a leaf so white, if false then its not so black
+            for(int y=0;y<height;y++){ //loop to read through pixels
                 int rowStart = y*width;
                 for(int x=0;x<width;x++){
                     Color pixel = pixelReader.getColor(x,y);
-                    if(isLeafPixel(pixel,samples,hueTol,satMin,brightMin,brightMax)){
+                    if(isLeafPixel(pixel,samples,hueTol,satMin,brightMin,brightMax)){ //if pixel found is a leaf colour, set the mask to true
                         mask[rowStart+x] = true;
                     }
 
                 }
             }
-            UnionFind uf = new UnionFind(width*height);
-            for(int y=0;y<height;y++){
+            UnionFind uf = new UnionFind(width*height); //create a disjoint set structure
+            for(int y=0;y<height;y++){  //loop through pixels
                 int rowStart = y*width;
                 for(int x=0;x<width;x++){
                     int id = rowStart + x;
-                    if(!mask[id]) continue;
+                    if(!mask[id]) continue;  //if pixel is black, skip it
                     if(x>0 && mask[id-1]){
-                        uf.union(id, id-1);
+                        uf.union(id, id-1);// if  its white, union it with neighbouring pixels
                     }
                     if(y>0 && mask[id-width]){
-                        uf.union(id, id-width);
+                        uf.union(id, id-width); //connects left neighbours and top neighbours
                     }
-                    if (useEight) {
+                    if (useEight) { //using 8 neighbour, so connecting diagonally with pixels as well
                         // up-left
                         if (x > 0 && y > 0 && mask[id - width - 1]) {
                             uf.union(id, id - width - 1);
@@ -61,41 +61,41 @@ import java.util.Map;
                     }
                 }
             }
-            Map<Integer, BlueBox> boxes = new HashMap<>();
-            for(int y=0;y<height;y++){
+            Map<Integer, BlueBox> boxes = new HashMap<>(); //create a map that stores the root id of a component, and the blue box for that component(leaf)
+            for(int y=0;y<height;y++){ // loop through again
                 int rowStart = y*width;
                 for(int x=0;x<width;x++){
-                    int id = rowStart + x;
+                    int id = rowStart + x;//       for each white pixel
                     if(!mask[id]) continue;
-                    int root = uf.find(id);
-                    BlueBox bb = boxes.get(root);
+                    int root = uf.find(id);    //    find its union root
+                    BlueBox bb = boxes.get(root);   //get the bluebox for that root or create on if there isnt
                     if(bb == null){
                         bb = new BlueBox(x, y);
                         boxes.put(root, bb);
                     }
-                    bb.expandForPixels(x,y);
+                    bb.expandForPixels(x,y);  //expand the bluebox to include this pixel
                 }
             }
-            List<BlueBox> filtered = new ArrayList<>();
+            List<BlueBox> filtered = new ArrayList<>();  //filter noise since union find will detect anything like bushes and grass.
             for(BlueBox bb : boxes.values()){
                 int size = bb.getPixelCount();
-                if(size >= minCompSize && size <= maxCompSize){
+                if(size >= minCompSize && size <= maxCompSize){  //if the size of the box fits the values, add it to the array
                     filtered.add(bb);
                 }
             }
-            filtered.sort((a,b) -> Integer.compare(b.getPixelCount(), a.getPixelCount()));
+            filtered.sort((a,b) -> Integer.compare(b.getPixelCount(), a.getPixelCount())); //sorts boxes from biggest to smallest
             for(int i =0;i<filtered.size();i++){
-                filtered.get(i).setRank(i+1);
+                filtered.get(i).setRank(i+1); //sets the rank of each cluster, starting at 1 , it would start at 0 if not adding the +1 line
             }
-            WritableImage maskImage = new WritableImage(width,height);
+            WritableImage maskImage = new WritableImage(width,height); //create the black/white image
             for(int y=0;y<height;y++){
                 int rowStart = y*width;
                 for(int x=0;x<width;x++){
                     int id = rowStart + x;
-                    maskImage.getPixelWriter().setColor(x,y,mask[id]? Color.WHITE : Color.BLACK);
+                    maskImage.getPixelWriter().setColor(x,y,mask[id]? Color.WHITE : Color.BLACK);  //basically uses the pixel ids to build the image, leafs are white everything else is black
                 }
             }
-            return new Detection(maskImage,filtered);
+            return new Detection(maskImage,filtered);   //return this image, and the boxes for drawing rectangles
         }
         private boolean isLeafPixel(Color pixel, List<ColourSample> samples, double hueTol, double satMin, double brightMin,double brightMax){
             if(samples==null||samples.isEmpty()) return false;
