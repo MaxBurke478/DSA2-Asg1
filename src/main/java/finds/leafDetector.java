@@ -83,6 +83,10 @@ import java.util.Map;
                     filtered.add(bb);
                 }
             }
+            filtered.sort((a,b) -> Integer.compare(b.getPixelCount(), a.getPixelCount()));
+            for(int i =0;i<filtered.size();i++){
+                filtered.get(i).setRank(i+1);
+            }
             WritableImage maskImage = new WritableImage(width,height);
             for(int y=0;y<height;y++){
                 int rowStart = y*width;

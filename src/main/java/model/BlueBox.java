@@ -1,7 +1,7 @@
 package model;
 
 public class BlueBox {
-    private int minX, minY, maxX, maxY;
+    private int minX, minY, maxX, maxY,rank;
 
 
     private int pixelCount;
@@ -48,6 +48,14 @@ public class BlueBox {
     }
     public int getWidth(){
         return(maxY-minY)+1;
+    }
+
+    public int getRank() {
+        return rank;
+    }
+
+    public void setRank(int rank) {
+        this.rank = rank;
     }
 
     @Override
