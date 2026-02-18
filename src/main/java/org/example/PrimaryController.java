@@ -8,9 +8,12 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelReader;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import model.BlueBox;
@@ -82,9 +85,12 @@ public class PrimaryController {
 
     @FXML
     private Slider satSlider;
-
+   @FXML
+   private Label sampleLabel;
     @FXML
     private Label saturationLabel;
+    private final Tooltip leafTooltip = new Tooltip();
+    private BlueBox hoveredBlueBox= null;
     private Image currentImage;
     private final leafDetector detector= new leafDetector();
     private final List<ColourSample> samples = new ArrayList<>();
@@ -97,6 +103,7 @@ public class PrimaryController {
     int maxSizeNumber;
 
     public void initialize() {
+        overlayCanvas.setMouseTransparent(true);
         hueSlider.valueProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
@@ -136,10 +143,130 @@ public class PrimaryController {
             @Override
             public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
                 maxSizeNumber =(int) maxSizeSlider.getValue();
-                maxSizeLabel.setText("Hue: "+String.valueOf(maxSizeNumber));
+                maxSizeLabel.setText("Max Size: "+String.valueOf(maxSizeNumber));
             }
         });
+        originalImageView.setOnMouseMoved(e -> handleHover(e.getX(), e.getY()));
+        originalImageView.setOnMouseExited(e -> {
+            leafTooltip.hide();
+            hoveredBlueBox = null;
+        });
+        originalImageView.setOnMouseClicked(e -> {
+            if (currentImage == null) return;
+
+            addSampleFromImageViewClick(e.getX(), e.getY());
+        });
+
         countLabel.setText("Leaves: 0");
+        sampleLabel.setText("Samples: 0");
+    }
+
+    private void handleHover(double mouseX, double mouseY) {
+
+        if (currentImage == null || lastResult == null) {
+            leafTooltip.hide();
+            hoveredBlueBox = null;
+            return;
+        }
+
+        double imageWidth = currentImage.getWidth();
+        double imageHeight = currentImage.getHeight();
+
+        double viewWidth = originalImageView.getBoundsInLocal().getWidth();
+        double viewHeight = originalImageView.getBoundsInLocal().getHeight();
+
+        double scale = Math.min(viewWidth / imageWidth, viewHeight / imageHeight);
+
+        double displayedWidth = imageWidth * scale;
+        double displayedHeight = imageHeight * scale;
+
+        double offsetX = (viewWidth - displayedWidth) / 2;
+        double offsetY = (viewHeight - displayedHeight) / 2;
+
+        // If outside image area, hide tooltip
+        if (mouseX < offsetX || mouseX > offsetX + displayedWidth ||
+                mouseY < offsetY || mouseY > offsetY + displayedHeight) {
+
+            leafTooltip.hide();
+            hoveredBlueBox = null;
+            return;
+        }
+
+        int imgX = (int) ((mouseX - offsetX) / scale);
+        int imgY = (int) ((mouseY - offsetY) / scale);
+
+        BlueBox found = null;
+
+        for (BlueBox b : lastResult.getBoxes()) {
+            if (imgX >= b.getMinX() && imgX <= b.getMaxX()
+                    && imgY >= b.getMinY() && imgY <= b.getMaxY()) {
+                found = b;
+                break;
+            }
+        }
+
+        if (found == null) {
+            leafTooltip.hide();
+            hoveredBlueBox = null;
+            return;
+        }
+
+        if (hoveredBlueBox == found) return;
+        hoveredBlueBox = found;
+
+        leafTooltip.setText(
+                "Leaf/Cluster Number: " + found.getRank() +
+                        "\nEstimated Size (pixel units): " + found.getPixelCount()
+        );
+
+        var screenPoint = originalImageView.localToScreen(mouseX, mouseY);
+        leafTooltip.show(originalImageView, screenPoint.getX() + 15, screenPoint.getY() + 15);
+    }
+
+
+
+
+    private void addSampleFromImageViewClick(double mouseX, double mouseY) {
+
+        if (currentImage == null) return;
+
+        double imageWidth = currentImage.getWidth();
+        double imageHeight = currentImage.getHeight();
+
+        double viewWidth = originalImageView.getBoundsInLocal().getWidth();
+        double viewHeight = originalImageView.getBoundsInLocal().getHeight();
+
+        double scale = Math.min(viewWidth / imageWidth, viewHeight / imageHeight);
+
+        double displayedWidth = imageWidth * scale;
+        double displayedHeight = imageHeight * scale;
+        double offsetX = (viewWidth - displayedWidth) / 2;
+        double offsetY = (viewHeight - displayedHeight) / 2;
+        if (mouseX < offsetX || mouseX > offsetX + displayedWidth ||
+                mouseY < offsetY || mouseY > offsetY + displayedHeight) {
+
+            System.out.println("Clicked outside the actual image area.");
+            return;
+        }
+        int imgX = (int) ((mouseX - offsetX) / scale);
+        int imgY = (int) ((mouseY - offsetY) / scale);
+        imgX = Math.max(0, Math.min(imgX, (int) imageWidth - 1));
+        imgY = Math.max(0, Math.min(imgY, (int) imageHeight - 1));
+
+        PixelReader reader = currentImage.getPixelReader();
+        if (reader == null) return;
+
+        Color clicked = reader.getColor(imgX, imgY);
+
+        ColourSample sample = new ColourSample(
+                clicked.getHue(),
+                clicked.getSaturation(),
+                clicked.getBrightness()
+        );
+
+        samples.add(sample);
+
+        sampleLabel.setText("Samples: " + samples.size());
     }
 
     @FXML void onLoadImage(){
@@ -159,7 +286,9 @@ public class PrimaryController {
     }
     @FXML
     private void onClearSamples() {
-        countLabel.setText("Samples cleared (not implemented yet)");
+        samples.clear();
+        sampleLabel.setText("Samples: 0");
+        countLabel.setText("Samples cleared");
     }
 
     @FXML
