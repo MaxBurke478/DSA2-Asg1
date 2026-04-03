@@ -6,6 +6,7 @@
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.Slider?>
 <?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.control.ToolBar?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
@@ -24,6 +25,10 @@
             <Button fx:id="loadButton" mnemonicParsing="false" onAction="#onLoadImage" text="Load image" />
           <Button fx:id="clearButton" mnemonicParsing="false" onAction="#onClearSamples" text="Clear Samples" />
             <Button fx:id="detectButton" mnemonicParsing="false" onAction="#onDetect" text="Detect" />
+            <ToggleButton fx:id="highlightModeButton" mnemonicParsing="false" text="Highlight Mode" />
+            <ToggleButton fx:id="tspModeButton" mnemonicParsing="false" text="Animation Toggle" />
+            <ToggleButton fx:id="sampleToggle" mnemonicParsing="false" text="Add Samples Toggle" />
+            <Button fx:id="randomColourButton" mnemonicParsing="false" text="Random Colours" />
             <Separator prefWidth="200.0" />
             <Label fx:id="countLabel" text="Leaves: 0" />
         </items>

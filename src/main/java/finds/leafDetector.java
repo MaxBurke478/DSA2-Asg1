@@ -23,7 +23,7 @@ import java.util.Map;
             PixelReader pixelReader = input.getPixelReader();  //pixelreader so it can access every pixel colour
 
             if(pixelReader == null){
-                return new Detection(new WritableImage(1,1), new ArrayList<>()); //if for some reason javaFx cant read image pixels, through simple result
+                return new Detection(new WritableImage(1,1), new ArrayList<>(),new HashMap<>(),new HashMap<>()); //if for some reason javaFx cant read image pixels, through simple result
             }
 
             boolean[] mask = new boolean[width*height];   //create a boolean mask array, if mask[id]= true, then its a leaf so white, if false then its not so black
@@ -37,6 +37,9 @@ import java.util.Map;
 
                 }
             }
+
+            mask= applyOpening(mask,width,height,1);
+
             UnionFind uf = new UnionFind(width*height); //create a disjoint set structure
             for(int y=0;y<height;y++){  //loop through pixels
                 int rowStart = y*width;
@@ -61,6 +64,8 @@ import java.util.Map;
                     }
                 }
             }
+            Map<Integer, Integer> pixelRootMap = new HashMap<>();
+            Map<Integer, List<int[]>> componentPixels = new HashMap<>();
             Map<Integer, BlueBox> boxes = new HashMap<>(); //create a map that stores the root id of a component, and the blue box for that component(leaf)
             for(int y=0;y<height;y++){ // loop through again
                 int rowStart = y*width;
@@ -74,6 +79,8 @@ import java.util.Map;
                         boxes.put(root, bb);
                     }
                     bb.expandForPixels(x,y);  //expand the bluebox to include this pixel
+                    pixelRootMap.put(id, root);
+                    componentPixels.computeIfAbsent(root, k -> new ArrayList<>()).add(new int[]{x, y});
                 }
             }
             List<BlueBox> filtered = new ArrayList<>();  //filter noise since union find will detect anything like bushes and grass.
@@ -95,20 +102,24 @@ import java.util.Map;
                     maskImage.getPixelWriter().setColor(x,y,mask[id]? Color.WHITE : Color.BLACK);  //basically uses the pixel ids to build the image, leafs are white everything else is black
                 }
             }
-            return new Detection(maskImage,filtered);   //return this image, and the boxes for drawing rectangles
+
+            return new Detection(maskImage,filtered,componentPixels,pixelRootMap);   //return this image, and the boxes for drawing rectangles
         }
         private boolean isLeafPixel(Color pixel, List<ColourSample> samples, double hueTol, double satMin, double brightMin,double brightMax){
             if(samples==null||samples.isEmpty()) return false;
             double h = pixel.getHue();
             double s = pixel.getSaturation();
             double b = pixel.getBrightness();
-
-            if(s<satMin) return false;
             if(b<brightMin|| b>brightMax) return false;
+
+
             for(ColourSample sample : samples){
                 double d = hueDistance(h,sample.getHue());
                 if(d<=hueTol) {
-                    return true;
+                    if(s >= satMin*.5) return true;
+                }
+                if(d<=hueTol*.5){
+                    if(s>=0.05) return true;
                 }
             }
             return false;
@@ -116,6 +127,51 @@ import java.util.Map;
         private double hueDistance(double h1, double h2) {
             double d = Math.abs(h1 - h2);
             return Math.min(d,360-d);
+        }
+
+        private boolean[] applyOpening(boolean[] mask, int width, int height, int radius){  //method to remove single pixels from the image
+            boolean[] eroded = erode(mask,width,height,radius);
+            return dilate(eroded,width,height,radius);
+        }
+        private boolean[] erode(boolean[] mask, int width, int height, int radius){
+            boolean[] out = new boolean[width*height];
+            for(int y = 0; y<height; y++){
+                for(int x = 0; x<width; x++){
+                    boolean keep = true;
+                    outer:
+                    for(int dy= -radius; dy <= radius; dy++){
+                        for(int dx= -radius; dx <= radius; dx++){
+                            int nx = x + dx, ny = y + dy;
+                            if(nx<0||nx>=width|| ny<0 || ny>=height || !mask[ny*width+nx]){
+                                keep = false;
+                                break outer;
+                            }
+                        }
+                    }
+                    out[y*width+x]=keep;
+                }
+            }
+            return out;
+        }
+
+
+        private boolean[] dilate(boolean[] mask, int width, int height, int radius){
+            boolean[] out = new boolean[width * height];
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    outer:
+                    for (int dy = -radius; dy <= radius; dy++) {
+                        for (int dx = -radius; dx <= radius; dx++) {
+                            int nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height && mask[ny * width + nx]) {
+                                out[y * width + x] = true;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+            }
+            return out;
         }
     }
 

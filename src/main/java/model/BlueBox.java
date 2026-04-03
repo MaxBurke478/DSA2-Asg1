@@ -11,7 +11,7 @@ public class BlueBox {
         this.minY = startY;
         this.maxX = startX;
         this.maxY = startY;
-        this.pixelCount = 0;
+        this.pixelCount = 1;
     }
 
     public void expandForPixels(int x,int y) {
@@ -43,10 +43,10 @@ public class BlueBox {
         return maxY;
     }
 
-    public int getHeight(){
+    public int getWidth(){
         return(maxX-minX)+1;
     }
-    public int getWidth(){
+    public int getHeight(){
         return(maxY-minY)+1;
     }
 
